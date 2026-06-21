@@ -29,8 +29,14 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
-        var user = authService.register(req);
-        return ApiResponse.created(user, "Đăng ký thành công. Vui lòng kiểm tra email để xác thực.");
+        var result = authService.register(req);
+        return ApiResponse.created(result, "Đăng ký thành công. Vui lòng nhập mã OTP để xác thực.");
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> body) {
+        var result = authService.loginWithGoogle(body.get("credential"));
+        return ApiResponse.ok(result, "Đăng nhập Google thành công");
     }
 
     @PostMapping("/login")
@@ -47,8 +53,9 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
-        authService.forgotPassword(body.get("email"));
-        return ApiResponse.ok(null, "Đã gửi mã OTP về email của bạn");
+        String devOtp = authService.forgotPassword(body.get("email"));
+        Object data = devOtp != null ? Map.of("devOtp", devOtp) : null;
+        return ApiResponse.ok(data, "Đã gửi mã OTP về email của bạn");
     }
 
     @PostMapping("/reset-password")
@@ -60,8 +67,9 @@ public class AuthController {
     @PostMapping("/resend-otp")
     public ResponseEntity<?> resendOtp(@RequestBody Map<String, String> body) {
         String type = body.getOrDefault("type", "verify");
-        authService.sendOtp(body.get("email"), OtpCode.Type.valueOf(type));
-        return ApiResponse.ok(null, "Đã gửi lại mã OTP");
+        String devOtp = authService.sendOtp(body.get("email"), OtpCode.Type.valueOf(type));
+        Object data = devOtp != null ? Map.of("devOtp", devOtp) : null;
+        return ApiResponse.ok(data, "Đã gửi lại mã OTP");
     }
 
     @GetMapping("/me")

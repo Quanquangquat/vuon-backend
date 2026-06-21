@@ -76,7 +76,7 @@ public class Product {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public enum Category { vegetable, flower, combo, accessory }
+    public enum Category { vegetable, flower, combo, accessory, seeds }
 
     public enum Difficulty {
         Dễ, Trung_bình, Khó;
