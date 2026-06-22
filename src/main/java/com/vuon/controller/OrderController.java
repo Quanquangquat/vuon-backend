@@ -35,7 +35,7 @@ public class OrderController {
     public ResponseEntity<?> getOrder(@AuthenticationPrincipal UUID userId,
                                       @PathVariable UUID id) {
         User user = userRepository.findById(userId).orElseThrow();
-        return ApiResponse.ok(Map.of("order", orderService.getOrderById(id, user)));
+        return ApiResponse.ok(Map.of("order", orderService.getOrderDetail(id, user)));
     }
 
     @PostMapping

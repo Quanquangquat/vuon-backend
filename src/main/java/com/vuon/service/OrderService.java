@@ -1,6 +1,7 @@
 package com.vuon.service;
 
 import com.vuon.dto.request.OrderRequest;
+import com.vuon.dto.response.OrderResponse;
 import com.vuon.dto.response.PageResponse;
 import com.vuon.exception.AppException;
 import com.vuon.model.*;
@@ -31,82 +32,40 @@ public class OrderService {
     private final PromotionRepository promotionRepository;
     private final UserRepository      userRepository;
 
-    public PageResponse<Order> getOrders(User user, String status, int page, int limit) {
+    @Transactional(readOnly = true)
+    public PageResponse<OrderResponse> getOrders(User user, String status, int page, int limit) {
         var pageable = PageRequest.of(page - 1, limit, Sort.by("createdAt").descending());
 
         var result = (status != null)
                 ? orderRepository.findByUserAndStatus(user, Order.Status.valueOf(status), pageable)
                 : orderRepository.findByUser(user, pageable);
 
-        return PageResponse.from(result);
+        // Map sang DTO ngay trong transaction để nạp lazy items an toàn
+        return PageResponse.from(result.map(OrderResponse::from));
     }
 
+    /** Lấy entity đơn hàng (dùng nội bộ, vd huỷ đơn) */
     public Order getOrderById(UUID orderId, User user) {
         return orderRepository.findByIdAndUser(orderId, user)
                 .orElseThrow(() -> AppException.notFound("Đơn hàng không tồn tại"));
     }
 
-    /** Tạo đơn hàng từ giỏ hàng - xử lý trong 1 transaction */
+    /** Lấy chi tiết đơn hàng dạng DTO cho frontend */
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderDetail(UUID orderId, User user) {
+        return OrderResponse.from(getOrderById(orderId, user));
+    }
+
+    /**
+     * Tạo đơn hàng. Ưu tiên danh sách items gửi thẳng từ frontend (snapshot tên/ảnh/giá),
+     * không phụ thuộc giỏ server hay ID sản phẩm có khớp DB hay không → tránh "đặt hàng thành
+     * công nhưng không lưu". Nếu request không có items thì dùng giỏ hàng phía server.
+     */
     @Transactional
-    public Order createOrder(User user, OrderRequest request) {
-        // 1. Lấy giỏ hàng
-        List<CartItem> cartItems = cartItemRepository.findByUserOrderByCreatedAtDesc(user);
-        if (cartItems.isEmpty()) {
-            throw AppException.badRequest("Giỏ hàng trống");
-        }
-
-        // 2. Kiểm tra tồn kho
-        for (CartItem item : cartItems) {
-            Product p = item.getProduct();
-            if (!p.isInStock() || p.getStock() < item.getQuantity()) {
-                throw AppException.badRequest(
-                        "Sản phẩm \"" + p.getName() + "\" không đủ số lượng tồn kho"
-                );
-            }
-        }
-
-        // 3. Tính tiền
-        int subtotal    = cartItems.stream()
-                                   .mapToInt(i -> i.getProduct().getPrice() * i.getQuantity())
-                                   .sum();
-        int shippingFee = subtotal >= 200000 ? 0 : 30000;
-
-        // 4. Áp mã giảm giá
-        int       discountAmount = 0;
-        Promotion promo          = null;
-
-        if (request.getPromoCode() != null && !request.getPromoCode().isBlank()) {
-            promo = promotionRepository.findActiveByCode(request.getPromoCode().toUpperCase())
-                    .orElseThrow(() -> AppException.badRequest("Mã giảm giá không hợp lệ"));
-
-            if (subtotal < promo.getMinOrder()) {
-                throw AppException.badRequest(
-                        "Đơn hàng tối thiểu " + promo.getMinOrder() + "đ để dùng mã này"
-                );
-            }
-
-            discountAmount = switch (promo.getType()) {
-                case percent  -> (int) (subtotal * promo.getDiscount() / 100.0);
-                case fixed    -> Math.min(promo.getDiscount(), subtotal);
-                case freeship -> shippingFee;
-            };
-
-            promo.setUsedCount(promo.getUsedCount() + 1);
-            promotionRepository.save(promo);
-        }
-
-        int total = subtotal + shippingFee - discountAmount;
-
-        // 5. Tạo đơn hàng
+    public OrderResponse createOrder(User user, OrderRequest request) {
         Order order = Order.builder()
                 .user(user)
-                .subtotal(subtotal)
-                .discountAmount(discountAmount)
-                .shippingFee(shippingFee)
-                .total(total)
-                .paymentMethod(Order.PaymentMethod.valueOf(
-                        request.getPaymentMethod() != null ? request.getPaymentMethod() : "COD"))
-                .promotion(promo)
+                .paymentMethod(parsePaymentMethod(request.getPaymentMethod()))
                 .shippingName(request.getShippingName())
                 .shippingPhone(request.getShippingPhone())
                 .shippingAddress(request.getShippingAddress())
@@ -114,38 +73,107 @@ public class OrderService {
                 .items(new ArrayList<>())
                 .build();
 
-        // 6. Tạo order items + trừ kho
-        for (CartItem cartItem : cartItems) {
-            Product p = cartItem.getProduct();
+        int subtotal = 0;
 
-            OrderItem item = OrderItem.builder()
-                    .order(order)
-                    .product(p)
-                    .productName(p.getName())
-                    .productImage(p.getImage())
-                    .price(p.getPrice())
-                    .quantity(cartItem.getQuantity())
-                    .subtotal(p.getPrice() * cartItem.getQuantity())
-                    .build();
-            order.getItems().add(item);
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            // Tạo đơn từ snapshot items của frontend
+            for (OrderRequest.Item reqItem : request.getItems()) {
+                int     qty   = Math.max(1, reqItem.getQuantity());
+                Product p     = findProductSafe(reqItem.getProductId());
+                int     price = reqItem.getPrice() > 0 ? reqItem.getPrice()
+                              : (p != null ? p.getPrice() : 0);
+                String  name  = reqItem.getProductName() != null ? reqItem.getProductName()
+                              : (p != null ? p.getName() : "Sản phẩm");
+                String  image = reqItem.getProductImage() != null ? reqItem.getProductImage()
+                              : (p != null ? p.getImage() : null);
 
-            // Trừ tồn kho
-            p.setStock(p.getStock() - cartItem.getQuantity());
-            if (p.getStock() <= 0) p.setInStock(false);
-            productRepository.save(p);
+                OrderItem item = OrderItem.builder()
+                        .order(order).product(p)
+                        .productName(name).productImage(image)
+                        .price(price).quantity(qty).subtotal(price * qty)
+                        .build();
+                order.getItems().add(item);
+                subtotal += price * qty;
+
+                if (p != null) { // chỉ trừ kho khi tìm thấy sản phẩm thật
+                    p.setStock(Math.max(0, p.getStock() - qty));
+                    if (p.getStock() <= 0) p.setInStock(false);
+                    productRepository.save(p);
+                }
+            }
+        } else {
+            // Fallback: dùng giỏ hàng phía server
+            List<CartItem> cartItems = cartItemRepository.findByUserOrderByCreatedAtDesc(user);
+            if (cartItems.isEmpty()) throw AppException.badRequest("Giỏ hàng trống");
+            for (CartItem cartItem : cartItems) {
+                Product p   = cartItem.getProduct();
+                int     qty = cartItem.getQuantity();
+                OrderItem item = OrderItem.builder()
+                        .order(order).product(p)
+                        .productName(p.getName()).productImage(p.getImage())
+                        .price(p.getPrice()).quantity(qty).subtotal(p.getPrice() * qty)
+                        .build();
+                order.getItems().add(item);
+                subtotal += p.getPrice() * qty;
+                p.setStock(Math.max(0, p.getStock() - qty));
+                if (p.getStock() <= 0) p.setInStock(false);
+                productRepository.save(p);
+            }
         }
+
+        int shippingFee = subtotal >= 200000 ? 0 : 30000;
+
+        // Áp mã giảm giá
+        int       discountAmount = 0;
+        Promotion promo          = null;
+        if (request.getPromoCode() != null && !request.getPromoCode().isBlank()) {
+            promo = promotionRepository.findActiveByCode(request.getPromoCode().toUpperCase())
+                    .orElseThrow(() -> AppException.badRequest("Mã giảm giá không hợp lệ"));
+            if (subtotal < promo.getMinOrder())
+                throw AppException.badRequest("Đơn hàng tối thiểu " + promo.getMinOrder() + "đ để dùng mã này");
+            discountAmount = switch (promo.getType()) {
+                case percent  -> (int) (subtotal * promo.getDiscount() / 100.0);
+                case fixed    -> Math.min(promo.getDiscount(), subtotal);
+                case freeship -> shippingFee;
+            };
+            promo.setUsedCount(promo.getUsedCount() + 1);
+            promotionRepository.save(promo);
+        }
+
+        order.setSubtotal(subtotal);
+        order.setShippingFee(shippingFee);
+        order.setDiscountAmount(discountAmount);
+        order.setTotal(subtotal + shippingFee - discountAmount);
+        order.setPromotion(promo);
 
         order = orderRepository.save(order);
 
-        // 7. Xoá giỏ hàng
+        // Xoá giỏ hàng server (nếu có) + cập nhật thống kê user
         cartItemRepository.deleteByUser(user);
-
-        // 8. Cập nhật thống kê user
         user.setTotalOrders(user.getTotalOrders() + 1);
-        user.setTotalSpent(user.getTotalSpent() + total);
+        user.setTotalSpent(user.getTotalSpent() + order.getTotal());
         userRepository.save(user);
 
-        return order;
+        return OrderResponse.from(order);
+    }
+
+    /** Map giá trị paymentMethod từ frontend về enum hợp lệ (mặc định COD) */
+    private Order.PaymentMethod parsePaymentMethod(String m) {
+        if (m == null) return Order.PaymentMethod.COD;
+        return switch (m.toUpperCase()) {
+            case "BANK", "BANK_TRANSFER" -> Order.PaymentMethod.bank_transfer;
+            case "WALLET", "E_WALLET"    -> Order.PaymentMethod.e_wallet;
+            case "MOMO"                  -> Order.PaymentMethod.momo;
+            case "ZALOPAY"               -> Order.PaymentMethod.zalopay;
+            default                       -> Order.PaymentMethod.COD;
+        };
+    }
+
+    /** Tìm product theo id; trả null nếu id không phải UUID (mock) hoặc không tồn tại */
+    private Product findProductSafe(String id) {
+        if (id == null || id.isBlank()) return null;
+        try { return productRepository.findById(UUID.fromString(id)).orElse(null); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     @Transactional
