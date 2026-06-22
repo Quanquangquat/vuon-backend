@@ -30,7 +30,12 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) {
         seedAdmin();
         seedProducts();
-        seedExtraProducts();
+        // Bọc try/catch để lỗi seeder (vd ràng buộc CHECK ở DB) không làm app crash → tránh 502
+        try {
+            seedExtraProducts();
+        } catch (Exception e) {
+            log.error("[SEEDER] seedExtraProducts lỗi (bỏ qua, app vẫn chạy): {}", e.getMessage());
+        }
         seedPromotions();
     }
 
@@ -116,61 +121,65 @@ public class DataSeeder implements CommandLineRunner {
      */
     private void seedExtraProducts() {
         Object[][] data = {
-            // ── Hạt giống (seeds) ──
+            // ── Hạt giống (seeds) ── (light/difficulty dùng giá trị hợp lệ với CHECK constraint của DB)
             {"Hạt giống xà lách", Product.Category.seeds, 25000, "https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?w=400",
              "Gói hạt giống xà lách dễ nảy mầm, thu hoạch sau 30-40 ngày.",
-             Product.Difficulty.Dễ, "Sáng vừa", "Tưới ẩm đều mỗi ngày", 4.6, 64, 200},
+             Product.Difficulty.Dễ, "Ánh sáng trung bình", "Tưới ẩm đều mỗi ngày", 4.6, 64, 200},
             {"Hạt giống cà rốt", Product.Category.seeds, 22000, "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400",
              "Hạt giống cà rốt tỷ lệ nảy mầm cao, củ ngọt giòn.",
-             Product.Difficulty.Trung_bình, "Nhiều nắng", "Giữ đất tơi xốp, tưới đều", 4.4, 38, 180},
+             Product.Difficulty.Dễ, "Nhiều ánh sáng", "Giữ đất tơi xốp, tưới đều", 4.4, 38, 180},
             {"Hạt giống dưa leo", Product.Category.seeds, 28000, "https://images.unsplash.com/photo-1604977042946-1eecc30f269e?w=400",
              "Hạt giống dưa leo F1 sai quả, phù hợp ban công có giàn.",
-             Product.Difficulty.Trung_bình, "Nhiều nắng", "Làm giàn leo, tưới 1-2 lần/ngày", 4.5, 52, 150},
+             Product.Difficulty.Dễ, "Nhiều ánh sáng", "Làm giàn leo, tưới 1-2 lần/ngày", 4.5, 52, 150},
             {"Hạt giống ớt chuông", Product.Category.seeds, 30000, "https://images.unsplash.com/photo-1525607551316-4a8e16d1f9ba?w=400",
              "Hạt giống ớt chuông nhiều màu, giàu vitamin C.",
-             Product.Difficulty.Trung_bình, "Nhiều nắng", "Bón phân định kỳ, tưới vừa phải", 4.3, 29, 160},
+             Product.Difficulty.Dễ, "Nhiều ánh sáng", "Bón phân định kỳ, tưới vừa phải", 4.3, 29, 160},
             {"Hạt giống rau muống", Product.Category.seeds, 18000, "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400",
              "Hạt giống rau muống nảy mầm nhanh, dễ trồng cho người mới.",
-             Product.Difficulty.Dễ, "Sáng vừa", "Tưới nước đều, ưa ẩm", 4.7, 88, 250},
+             Product.Difficulty.Dễ, "Ánh sáng trung bình", "Tưới nước đều, ưa ẩm", 4.7, 88, 250},
             // ── Hoa (flower) ──
             {"Hoa hướng dương", Product.Category.flower, 90000, "https://images.unsplash.com/photo-1597848212624-e19ab1ad36a3?w=400",
              "Hoa hướng dương rực rỡ, vươn theo nắng, dễ trồng.",
-             Product.Difficulty.Dễ, "Nhiều nắng", "Tưới đều, cần nhiều nắng", 4.8, 140, 60},
+             Product.Difficulty.Dễ, "Nhiều ánh sáng", "Tưới đều, cần nhiều nắng", 4.8, 140, 60},
             {"Hoa cẩm tú cầu", Product.Category.flower, 135000, "https://images.unsplash.com/photo-1597305877032-0668b3c6413a?w=400",
              "Hoa cẩm tú cầu sai bông, đổi màu theo độ pH đất.",
-             Product.Difficulty.Khó, "Sáng vừa", "Giữ ẩm, tránh nắng gắt buổi trưa", 4.6, 74, 35},
+             Product.Difficulty.Khó, "Ánh sáng trung bình", "Giữ ẩm, tránh nắng gắt buổi trưa", 4.6, 74, 35},
             {"Hoa mười giờ", Product.Category.flower, 55000, "https://images.unsplash.com/photo-1502780402662-acc01917738e?w=400",
              "Hoa mười giờ nhiều màu, nở rộ buổi sáng, cực dễ trồng.",
-             Product.Difficulty.Dễ, "Nhiều nắng", "Chịu hạn tốt, tưới ít", 4.7, 96, 120},
+             Product.Difficulty.Dễ, "Nhiều ánh sáng", "Chịu hạn tốt, tưới ít", 4.7, 96, 120},
             {"Hoa sống đời", Product.Category.flower, 70000, "https://images.unsplash.com/photo-1509223197845-458d87318791?w=400",
              "Hoa sống đời bền hoa, ít sâu bệnh, hợp để bàn.",
-             Product.Difficulty.Dễ, "Sáng vừa", "Tưới vừa phải, tránh úng", 4.5, 61, 80},
+             Product.Difficulty.Dễ, "Ánh sáng trung bình", "Tưới vừa phải, tránh úng", 4.5, 61, 80},
             {"Hoa thược dược", Product.Category.flower, 85000, "https://images.unsplash.com/photo-1508610048659-a06b669e3321?w=400",
              "Hoa thược dược nhiều cánh, màu sắc tươi tắn cho dịp Tết.",
-             Product.Difficulty.Trung_bình, "Nhiều nắng", "Tưới đều, bón phân khi ra nụ", 4.6, 70, 50}
+             Product.Difficulty.Dễ, "Nhiều ánh sáng", "Tưới đều, bón phân khi ra nụ", 4.6, 70, 50}
         };
 
         int added = 0;
         for (Object[] row : data) {
             String name = (String) row[0];
-            if (productRepository.existsByName(name)) continue;
-            Product p = Product.builder()
-                .name(name)
-                .category((Product.Category) row[1])
-                .price((int) row[2])
-                .image((String) row[3])
-                .description((String) row[4])
-                .difficulty((Product.Difficulty) row[5])
-                .light((String) row[6])
-                .careLevel((String) row[7])
-                .rating((Double) row[8])
-                .reviewsCount((int) row[9])
-                .stock((int) row[10])
-                .inStock((int) row[10] > 0)
-                .isActive(true)
-                .build();
-            productRepository.save(p);
-            added++;
+            try {
+                if (productRepository.existsByName(name)) continue;
+                Product p = Product.builder()
+                    .name(name)
+                    .category((Product.Category) row[1])
+                    .price((int) row[2])
+                    .image((String) row[3])
+                    .description((String) row[4])
+                    .difficulty((Product.Difficulty) row[5])
+                    .light((String) row[6])
+                    .careLevel((String) row[7])
+                    .rating((Double) row[8])
+                    .reviewsCount((int) row[9])
+                    .stock((int) row[10])
+                    .inStock((int) row[10] > 0)
+                    .isActive(true)
+                    .build();
+                productRepository.save(p);
+                added++;
+            } catch (Exception e) {
+                log.warn("[SEEDER] Bỏ qua sản phẩm '{}': {}", name, e.getMessage());
+            }
         }
         if (added > 0) log.info("[SEEDER] {} extra products added (seeds + flowers)", added);
     }
