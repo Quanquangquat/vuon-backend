@@ -8,46 +8,40 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Banner hiển thị ở khu vực hero trang chủ.
+ * image lưu dạng URL hoặc data URL (base64) nên dùng kiểu TEXT.
+ */
 @Entity
-@Table(name = "blog_posts")
+@Table(name = "banners")
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
 @Builder
-public class BlogPost {
+public class Banner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, length = 300)
+    @Column(length = 200)
     private String title;
 
-    @Column(nullable = false, unique = true, length = 350)
-    private String slug;
-
     @Column(columnDefinition = "TEXT")
-    private String excerpt;
-
-    @Column(columnDefinition = "TEXT")
-    private String content;
+    private String subtitle;
 
     @Column(columnDefinition = "TEXT")
     private String image;
 
-    @Column(nullable = false, length = 100)
-    @Builder.Default
-    private String author = "Admin VƯƠN";
+    @Column(length = 300)
+    private String link;
 
-    @Column(length = 50)
-    private String category;
-
-    @Column(nullable = false)
+    @Column(name = "sort_order", nullable = false)
     @Builder.Default
-    private int views = 0;
+    private int sortOrder = 0;
 
-    @Column(name = "is_published", nullable = false)
+    @Column(name = "is_active", nullable = false)
     @Builder.Default
-    private boolean isPublished = true;
+    private boolean isActive = true;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -27,6 +27,7 @@ import java.util.UUID;
 public class MiscController {
 
     private final BlogPostRepository      blogPostRepository;
+    private final BannerRepository        bannerRepository;
     private final PromotionRepository     promotionRepository;
     private final FavoriteRepository      favoriteRepository;
     private final ProductRepository       productRepository;
@@ -65,6 +66,13 @@ public class MiscController {
         post.setViews(post.getViews() + 1);
         blogPostRepository.save(post);
         return ApiResponse.ok(Map.of("post", post));
+    }
+
+    // ========== BANNERS ==========
+    @GetMapping("/api/banners")
+    public ResponseEntity<?> getBanners() {
+        return ApiResponse.ok(Map.of("banners",
+                bannerRepository.findByIsActiveTrueOrderBySortOrderAsc()));
     }
 
     // ========== PROMOTIONS ==========

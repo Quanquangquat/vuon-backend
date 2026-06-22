@@ -28,6 +28,7 @@ public class AdminService {
     private final PromotionRepository promotionRepository;
     private final FaqRepository       faqRepository;
     private final BlogPostRepository  blogPostRepository;
+    private final BannerRepository    bannerRepository;
 
     /** Dashboard: tổng quan thống kê */
     public Map<String, Object> getDashboard() {
@@ -77,6 +78,13 @@ public class AdminService {
         }
         if (fields.containsKey("description")) p.setDescription((String) fields.get("description"));
         if (fields.containsKey("image"))       p.setImage((String) fields.get("image"));
+        if (fields.containsKey("category")) {
+            try { p.setCategory(Product.Category.valueOf((String) fields.get("category"))); }
+            catch (IllegalArgumentException ignored) {}
+        }
+        if (fields.containsKey("difficulty")) p.setDifficulty(Product.Difficulty.fromString((String) fields.get("difficulty")));
+        if (fields.containsKey("light"))      p.setLight((String) fields.get("light"));
+        if (fields.containsKey("careLevel"))  p.setCareLevel((String) fields.get("careLevel"));
         return productRepository.save(p);
     }
 
@@ -161,5 +169,40 @@ public class AdminService {
                 .content(content).image(image)
                 .category(category).author(author)
                 .build());
+    }
+
+    // ---- Banners ----
+    public java.util.List<Banner> getAllBanners() {
+        return bannerRepository.findAllByOrderBySortOrderAsc();
+    }
+
+    @Transactional
+    public Banner createBanner(Map<String, Object> body) {
+        return bannerRepository.save(Banner.builder()
+                .title((String) body.get("title"))
+                .subtitle((String) body.get("subtitle"))
+                .image((String) body.get("image"))
+                .link((String) body.get("link"))
+                .sortOrder(body.containsKey("sortOrder") ? (int) body.get("sortOrder") : 0)
+                .isActive(!body.containsKey("isActive") || (boolean) body.get("isActive"))
+                .build());
+    }
+
+    @Transactional
+    public Banner updateBanner(UUID id, Map<String, Object> fields) {
+        Banner b = bannerRepository.findById(id)
+                .orElseThrow(() -> AppException.notFound("Banner không tồn tại"));
+        if (fields.containsKey("title"))     b.setTitle((String) fields.get("title"));
+        if (fields.containsKey("subtitle"))  b.setSubtitle((String) fields.get("subtitle"));
+        if (fields.containsKey("image"))     b.setImage((String) fields.get("image"));
+        if (fields.containsKey("link"))      b.setLink((String) fields.get("link"));
+        if (fields.containsKey("sortOrder")) b.setSortOrder((int) fields.get("sortOrder"));
+        if (fields.containsKey("isActive"))  b.setActive((boolean) fields.get("isActive"));
+        return bannerRepository.save(b);
+    }
+
+    @Transactional
+    public void deleteBanner(UUID id) {
+        bannerRepository.deleteById(id);
     }
 }

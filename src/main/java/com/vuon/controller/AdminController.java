@@ -138,6 +138,29 @@ public class AdminController {
         return ApiResponse.created(post, "Đã đăng bài viết");
     }
 
+    // ---- Banners ----
+    @GetMapping("/banners")
+    public ResponseEntity<?> getBanners() {
+        return ApiResponse.ok(Map.of("banners", adminService.getAllBanners()));
+    }
+
+    @PostMapping("/banners")
+    public ResponseEntity<?> createBanner(@RequestBody Map<String, Object> body) {
+        return ApiResponse.created(adminService.createBanner(body), "Đã thêm banner");
+    }
+
+    @PutMapping("/banners/{id}")
+    public ResponseEntity<?> updateBanner(@PathVariable UUID id,
+                                          @RequestBody Map<String, Object> body) {
+        return ApiResponse.ok(adminService.updateBanner(id, body), "Đã cập nhật banner");
+    }
+
+    @DeleteMapping("/banners/{id}")
+    public ResponseEntity<?> deleteBanner(@PathVariable UUID id) {
+        adminService.deleteBanner(id);
+        return ApiResponse.ok(null, "Đã xoá banner");
+    }
+
     // ---- Community Moderation ----
     @DeleteMapping("/community/{id}")
     public ResponseEntity<?> hidePost(@PathVariable UUID id) {

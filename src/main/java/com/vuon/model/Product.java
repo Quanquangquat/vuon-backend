@@ -32,7 +32,7 @@ public class Product {
     @Column(nullable = false)
     private int price;
 
-    @Column
+    @Column(columnDefinition = "TEXT")
     private String image;
 
     @Column(columnDefinition = "TEXT")
