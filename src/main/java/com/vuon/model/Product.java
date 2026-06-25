@@ -32,6 +32,13 @@ public class Product {
     @Column(nullable = false)
     private int price;
 
+    // Dùng Integer (nullable) để Hibernate thêm cột vào bảng products đang có dữ liệu mà không vướng NOT NULL
+    @Column(name = "original_price")
+    private Integer originalPrice;
+
+    @Column(length = 50)
+    private String sku;
+
     @Column(columnDefinition = "TEXT")
     private String image;
 

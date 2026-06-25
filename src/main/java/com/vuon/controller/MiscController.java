@@ -28,6 +28,7 @@ public class MiscController {
 
     private final BlogPostRepository      blogPostRepository;
     private final BannerRepository        bannerRepository;
+    private final com.vuon.service.SiteSettingService siteSettingService;
     private final PromotionRepository     promotionRepository;
     private final FavoriteRepository      favoriteRepository;
     private final ProductRepository       productRepository;
@@ -73,6 +74,12 @@ public class MiscController {
     public ResponseEntity<?> getBanners() {
         return ApiResponse.ok(Map.of("banners",
                 bannerRepository.findByIsActiveTrueOrderBySortOrderAsc()));
+    }
+
+    // ========== SITE SETTINGS ==========
+    @GetMapping("/api/settings")
+    public ResponseEntity<?> getSettings() {
+        return ApiResponse.ok(Map.of("settings", siteSettingService.get()));
     }
 
     // ========== PROMOTIONS ==========

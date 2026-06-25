@@ -21,6 +21,9 @@ public class AdminController {
 
     private final AdminService     adminService;
     private final CommunityService communityService;
+    private final com.vuon.service.SiteSettingService siteSettingService;
+    private final com.vuon.service.OrderService orderService;
+    private final com.vuon.repository.UserRepository userRepository;
 
     // ---- Dashboard ----
     @GetMapping("/dashboard")
@@ -37,18 +40,7 @@ public class AdminController {
 
     @PostMapping("/products")
     public ResponseEntity<?> createProduct(@RequestBody Map<String, Object> body) {
-        var product = adminService.createProduct(
-                (String) body.get("name"),
-                (String) body.get("category"),
-                (int)    body.get("price"),
-                (String) body.get("image"),
-                (String) body.get("description"),
-                (String) body.get("difficulty"),
-                (String) body.get("light"),
-                (String) body.get("careLevel"),
-                body.containsKey("stock") ? (int) body.get("stock") : 0
-        );
-        return ApiResponse.created(product, "Đã thêm sản phẩm");
+        return ApiResponse.created(adminService.createProduct(body), "Đã thêm sản phẩm");
     }
 
     @PutMapping("/products/{id}")
@@ -76,6 +68,21 @@ public class AdminController {
                                                @RequestBody Map<String, String> body) {
         var order = adminService.updateOrderStatus(id, body.get("status"));
         return ApiResponse.ok(order, "Đã cập nhật trạng thái đơn hàng");
+    }
+
+    @PostMapping("/orders")
+    public ResponseEntity<?> createOrder(@RequestBody com.vuon.dto.request.AdminOrderRequest body) {
+        if (body.getUserId() == null || body.getOrder() == null)
+            return ApiResponse.badRequest("Thiếu thông tin khách hàng hoặc đơn hàng");
+        com.vuon.model.User user;
+        try {
+            user = userRepository.findById(UUID.fromString(body.getUserId()))
+                    .orElseThrow(() -> com.vuon.exception.AppException.notFound("Khách hàng không tồn tại"));
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.badRequest("ID khách hàng không hợp lệ");
+        }
+        var order = orderService.createOrder(user, body.getOrder());
+        return ApiResponse.created(order, "Đã tạo đơn hàng");
     }
 
     // ---- Customers ----
@@ -138,6 +145,18 @@ public class AdminController {
         return ApiResponse.created(post, "Đã đăng bài viết");
     }
 
+    @PutMapping("/blog/{id}")
+    public ResponseEntity<?> updateBlog(@PathVariable UUID id,
+                                        @RequestBody Map<String, Object> body) {
+        return ApiResponse.ok(adminService.updateBlogPost(id, body), "Đã cập nhật bài viết");
+    }
+
+    @DeleteMapping("/blog/{id}")
+    public ResponseEntity<?> deleteBlog(@PathVariable UUID id) {
+        adminService.deleteBlogPost(id);
+        return ApiResponse.ok(null, "Đã xoá bài viết");
+    }
+
     // ---- Banners ----
     @GetMapping("/banners")
     public ResponseEntity<?> getBanners() {
@@ -159,6 +178,17 @@ public class AdminController {
     public ResponseEntity<?> deleteBanner(@PathVariable UUID id) {
         adminService.deleteBanner(id);
         return ApiResponse.ok(null, "Đã xoá banner");
+    }
+
+    // ---- Site Settings ----
+    @GetMapping("/settings")
+    public ResponseEntity<?> getSettings() {
+        return ApiResponse.ok(Map.of("settings", siteSettingService.get()));
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<?> updateSettings(@RequestBody Map<String, Object> body) {
+        return ApiResponse.ok(Map.of("settings", siteSettingService.update(body)), "Đã lưu cài đặt");
     }
 
     // ---- Community Moderation ----

@@ -21,3 +21,25 @@ CREATE TABLE IF NOT EXISTS banners (
   created_at  timestamp DEFAULT now(),
   updated_at  timestamp DEFAULT now()
 );
+
+-- 3) Cột mới cho products: giá gốc + SKU (Hibernate cũng tự thêm, đây là phòng hờ).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price integer;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS sku            varchar(50);
+
+-- 4) Bảng cài đặt giao diện (Hibernate tự tạo; tạo sẵn cũng được).
+CREATE TABLE IF NOT EXISTS site_settings (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  brand_name         varchar(100),
+  logo_url           text,
+  logo_white_url     text,
+  favicon_url        text,
+  footer_description text,
+  footer_phone       varchar(50),
+  footer_email       varchar(150),
+  footer_address     text,
+  facebook_url       text,
+  instagram_url      text,
+  youtube_url        text,
+  promo_bar_text     text,
+  updated_at         timestamp DEFAULT now()
+);

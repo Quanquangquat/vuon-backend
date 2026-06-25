@@ -52,15 +52,20 @@ public class AdminService {
     }
 
     @Transactional
-    public Product createProduct(String name, String category, int price, String image,
-                                  String description, String difficulty, String light,
-                                  String careLevel, int stock) {
+    public Product createProduct(Map<String, Object> body) {
+        int stock = body.containsKey("stock") ? (int) body.get("stock") : 0;
+        String difficulty = (String) body.getOrDefault("difficulty", "Dễ");
         return productRepository.save(Product.builder()
-                .name(name)
-                .category(Product.Category.valueOf(category))
-                .price(price).image(image).description(description)
-                .difficulty(Product.Difficulty.fromString(difficulty))
-                .light(light).careLevel(careLevel)
+                .name((String) body.get("name"))
+                .category(Product.Category.valueOf((String) body.get("category")))
+                .price(body.containsKey("price") ? (int) body.get("price") : 0)
+                .originalPrice(body.containsKey("originalPrice") ? (int) body.get("originalPrice") : 0)
+                .sku((String) body.get("sku"))
+                .image((String) body.get("image"))
+                .description((String) body.get("description"))
+                .difficulty(Product.Difficulty.fromString(difficulty != null ? difficulty : "Dễ"))
+                .light((String) body.get("light"))
+                .careLevel((String) body.get("careLevel"))
                 .stock(stock).inStock(stock > 0)
                 .build());
     }
@@ -69,8 +74,10 @@ public class AdminService {
     public Product updateProduct(UUID id, Map<String, Object> fields) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> AppException.notFound("Sản phẩm không tồn tại"));
-        if (fields.containsKey("name"))        p.setName((String) fields.get("name"));
-        if (fields.containsKey("price"))       p.setPrice((int) fields.get("price"));
+        if (fields.containsKey("name"))          p.setName((String) fields.get("name"));
+        if (fields.containsKey("price"))         p.setPrice((int) fields.get("price"));
+        if (fields.containsKey("originalPrice")) p.setOriginalPrice((int) fields.get("originalPrice"));
+        if (fields.containsKey("sku"))           p.setSku((String) fields.get("sku"));
         if (fields.containsKey("stock")) {
             int stock = (int) fields.get("stock");
             p.setStock(stock);
@@ -169,6 +176,26 @@ public class AdminService {
                 .content(content).image(image)
                 .category(category).author(author)
                 .build());
+    }
+
+    @Transactional
+    public BlogPost updateBlogPost(UUID id, Map<String, Object> fields) {
+        BlogPost p = blogPostRepository.findById(id)
+                .orElseThrow(() -> AppException.notFound("Bài viết không tồn tại"));
+        if (fields.containsKey("title"))     p.setTitle((String) fields.get("title"));
+        if (fields.containsKey("excerpt"))   p.setExcerpt((String) fields.get("excerpt"));
+        if (fields.containsKey("content"))   p.setContent((String) fields.get("content"));
+        if (fields.containsKey("image"))     p.setImage((String) fields.get("image"));
+        if (fields.containsKey("category"))  p.setCategory((String) fields.get("category"));
+        if (fields.containsKey("isPublished")) p.setPublished((boolean) fields.get("isPublished"));
+        return blogPostRepository.save(p);
+    }
+
+    @Transactional
+    public void deleteBlogPost(UUID id) {
+        if (!blogPostRepository.existsById(id))
+            throw AppException.notFound("Bài viết không tồn tại");
+        blogPostRepository.deleteById(id);
     }
 
     // ---- Banners ----
